@@ -3,5 +3,3 @@ services:
     build: .
     restart: always
     env_file: .env
-    volumes:
-      - ./sessions:/root/.config/instaloader   # Login-Session persistent speichern
