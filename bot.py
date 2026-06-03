@@ -15,7 +15,18 @@ L = instaloader.Instaloader(
 )
 
 async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    url = update.message.text.strip()
+    text = update.message.text.strip()
+
+    # Nur reagieren wenn instagram.com im Text vorkommt
+    if "instagram.com" not in text:
+        return
+
+    # URL aus dem Text extrahieren
+    url = None
+    for word in text.split():
+        if "instagram.com" in word:
+            url = word
+            break
 
     shortcode = None
     for segment in ["/p/", "/reel/"]:
