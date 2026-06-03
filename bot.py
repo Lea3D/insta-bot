@@ -11,7 +11,7 @@ L = instaloader.Instaloader(
     download_geotags=False,
     download_comments=False,
     save_metadata=False,
-    post_metadata_txt_pattern=""
+    post_metadata_txt_pattern="{caption}"
 )
 
 async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -48,15 +48,32 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             await update.message.reply_text(f"❌ Fehler: {e}")
             return
-
+        
         media_files = sorted(glob.glob(os.path.join(tmpdir, "**", "*"), recursive=True))
+
+        # Caption aus .txt Datei lesen
+        caption = ""
+        txt_files = [f for f in media_files if f.endswith(".txt")]
+        if txt_files:
+            with open(txt_files[0], "r", encoding="utf-8") as fp:
+                caption = fp.read().strip()[:1024]
+
         sent = 0
+        first = True
         for f in media_files:
             if f.endswith((".jpg", ".jpeg", ".png")):
-                await update.message.reply_photo(photo=open(f, "rb"))
+                await update.message.reply_photo(
+                    photo=open(f, "rb"),
+                    caption=caption if first else None
+                )
+                first = False
                 sent += 1
             elif f.endswith((".mp4", ".mov")):
-                await update.message.reply_video(video=open(f, "rb"))
+                await update.message.reply_video(
+                    video=open(f, "rb"),
+                    caption=caption if first else None
+                )
+                first = False
                 sent += 1
 
         if sent == 0:
