@@ -37,6 +37,9 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
+                import subprocess
+                result = subprocess.run(['ls', '-la', tmpdir], capture_output=True, text=True)
+                await update.message.reply_text(f"Debug:\n{result.stdout}")
                 caption = info.get("description", "")[:1024] if info else ""
         except Exception as e:
             await update.message.reply_text(f"❌ Fehler: {e}")

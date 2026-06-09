@@ -1,5 +1,5 @@
 services:
   insta-bot:
-    build: .
+    image: ghcr.io/lea3d/insta-bot:latest
     restart: always
     env_file: .env
