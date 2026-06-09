@@ -30,29 +30,26 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'no_warnings': True,
             'writeinfojson': False,
             'writethumbnail': False,
-            # Telegram-Limit: 50MB — Qualität begrenzen
             'format': 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best[height<=720]/best',
         }
 
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
-                import subprocess
+                caption = info.get("description", "")[:1024] if info else ""
         except Exception as e:
             await update.message.reply_text(f"❌ Fehler: {e}")
             return
 
         media_files = sorted(glob.glob(os.path.join(tmpdir, "*")))
-        
-        # Nur größte MP4 behalten (gemergede Version)
+
         mp4_files = [f for f in media_files if f.endswith((".mp4", ".mov", ".webm", ".mkv"))]
         if mp4_files:
             mp4_files = [max(mp4_files, key=os.path.getsize)]
-        
+
         img_files = [f for f in media_files if f.endswith((".jpg", ".jpeg", ".png"))]
-        
         final_files = img_files + mp4_files
-        
+
         sent = 0
         first = True
         for f in final_files:
@@ -81,7 +78,6 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if sent == 0:
             await update.message.reply_text("⚠️ Keine Mediendateien gefunden.")
 
-# Erhöhter Timeout für den Bot selbst
 request = HTTPXRequest(read_timeout=120, write_timeout=120, connect_timeout=60)
 app = ApplicationBuilder().token(BOT_TOKEN).request(request).build()
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url))
