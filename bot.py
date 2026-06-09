@@ -38,17 +38,24 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
                 import subprocess
-                result = subprocess.run(['ls', '-la', tmpdir], capture_output=True, text=True)
-                await update.message.reply_text(f"Debug:\n{result.stdout}")
-                caption = info.get("description", "")[:1024] if info else ""
         except Exception as e:
             await update.message.reply_text(f"❌ Fehler: {e}")
             return
 
         media_files = sorted(glob.glob(os.path.join(tmpdir, "*")))
+        
+        # Nur größte MP4 behalten (gemergede Version)
+        mp4_files = [f for f in media_files if f.endswith((".mp4", ".mov", ".webm", ".mkv"))]
+        if mp4_files:
+            mp4_files = [max(mp4_files, key=os.path.getsize)]
+        
+        img_files = [f for f in media_files if f.endswith((".jpg", ".jpeg", ".png"))]
+        
+        final_files = img_files + mp4_files
+        
         sent = 0
         first = True
-        for f in media_files:
+        for f in final_files:
             if f.endswith((".jpg", ".jpeg", ".png")):
                 await update.message.reply_photo(
                     photo=open(f, "rb"),
@@ -57,7 +64,6 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 first = False
                 sent += 1
             elif f.endswith((".mp4", ".mov", ".webm", ".mkv")):
-                # Datei zu groß? Warnen statt crashen
                 size_mb = os.path.getsize(f) / (1024 * 1024)
                 if size_mb > 50:
                     await update.message.reply_text(f"⚠️ Datei zu groß ({size_mb:.1f} MB), Telegram-Limit ist 50 MB.")
