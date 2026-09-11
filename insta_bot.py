@@ -90,20 +90,6 @@ async def send_with_retry(coro_factory, *, retries=1):
             raise
 
 
-async def debug_log_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Temporärer Debug-Handler: loggt JEDES eingehende Update, unabhängig
-    von Filtern. Hilft zu unterscheiden, ob Telegram überhaupt Updates
-    liefert oder ob das Problem später in handle_url liegt."""
-    chat = update.effective_chat
-    msg = update.effective_message
-    logger.info(
-        "RAW UPDATE empfangen: chat_id=%s chat_type=%s text=%r",
-        chat.id if chat else None,
-        chat.type if chat else None,
-        msg.text if msg else None,
-    )
-
-
 async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
         return
@@ -179,7 +165,6 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         oversized = False
 
         for f in final_files:
-            upload_start = None
             try:
                 if f.endswith((".jpg", ".jpeg", ".png")):
                     await send_with_retry(lambda f=f: update.message.reply_photo(
@@ -207,8 +192,6 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             f"({size_mb:.0f} MB, Limit {TELEGRAM_LIMIT_MB} MB)."
                         )
                         continue
-                    logger.info("Starte Video-Upload: %s (%.1f MB)", os.path.basename(f), size_mb)
-                    upload_start = time.monotonic()
                     await send_with_retry(lambda f=f: update.message.reply_video(
                         video=open(f, "rb"),
                         caption=caption if first else None,
@@ -218,14 +201,9 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     ))
                     first = False
                     sent += 1
-                    upload_seconds = time.monotonic() - upload_start
-                    logger.info(
-                        "Video gesendet: %s (%.1f MB) in %.1fs -> %.2f MB/s",
-                        os.path.basename(f), size_mb, upload_seconds, size_mb / upload_seconds if upload_seconds > 0 else 0,
-                    )
+                    logger.info("Video gesendet: %s (%.1f MB)", os.path.basename(f), size_mb)
             except TelegramError as e:
-                elapsed = f"{time.monotonic() - upload_start:.1f}s" if upload_start else "?"
-                logger.warning("Senden an Telegram fehlgeschlagen für %s nach %s: %s", f, elapsed, e)
+                logger.warning("Senden an Telegram fehlgeschlagen für %s: %s", f, e)
                 send_failed = True
 
         await safe_delete(status_msg)
@@ -243,9 +221,5 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 request = HTTPXRequest(read_timeout=280, write_timeout=280, connect_timeout=60)
 app = ApplicationBuilder().token(BOT_TOKEN).request(request).build()
-# group=-1 läuft vor allen anderen Handlern und hat KEINEN Filter,
-# damit sichtbar wird, ob überhaupt Updates ankommen, auch wenn
-# handle_url selbst nicht feuert. Nach Diagnose wieder entfernen.
-app.add_handler(MessageHandler(filters.ALL, debug_log_update), group=-1)
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url))
 app.run_polling()
