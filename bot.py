@@ -8,6 +8,12 @@ import yt_dlp
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("insta-bot")
 
+# httpx loggt bei INFO jede Request-URL im Klartext, inkl. Bot-Token
+# (".../bot<TOKEN>/sendMessage"). Level hier separat anheben, damit der
+# Token nicht in den Logs landet, während der Rest des Loggings unverändert
+# auf INFO bleibt.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 
 TELEGRAM_LIMIT_MB = 50
@@ -38,6 +44,8 @@ def friendly_error(exc: Exception) -> str:
          "🔒 Privater Inhalt oder Login erforderlich – kann nicht heruntergeladen werden."),
         (("429", "too many requests", "rate-limit", "rate limit"),
          "⏳ Zu viele Anfragen gerade (Rate-Limit). Bitte in ein paar Minuten nochmal versuchen."),
+        (("403", "forbidden"),
+         "🔒 Zugriff verweigert (HTTP 403). Das kann an einer veralteten yt-dlp-Version liegen."),
         (("unsupported url", "no video formats", "unable to extract", "no media found"),
          "❓ Dieser Link wird nicht unterstützt oder enthält kein erkennbares Medium."),
         (("video unavailable", "content isn't available", "has been removed", "404", "not found"),
@@ -113,6 +121,7 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         sent = 0
         first = True
         send_failed = False
+        oversized = False
 
         for f in final_files:
             try:
@@ -128,6 +137,10 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     if size_mb > TELEGRAM_LIMIT_MB:
                         # Rare: yt-dlp's size estimate was off. Nothing was sent, so
                         # there's nothing to clean up beyond the status message below.
+                        # Flag it explicitly instead of relying on sent==0, so the
+                        # generic "keine Mediendateien gefunden" fallback below
+                        # doesn't also fire and produce a confusing double message.
+                        oversized = True
                         await update.message.reply_text(
                             f"⚠️ Video ist selbst in kleinster verfügbarer Qualität zu groß für Telegram "
                             f"({size_mb:.0f} MB, Limit {TELEGRAM_LIMIT_MB} MB)."
@@ -148,7 +161,7 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await safe_delete(status_msg)
 
-        if sent == 0 and not send_failed:
+        if sent == 0 and not send_failed and not oversized:
             await update.message.reply_text("⚠️ Keine Mediendateien gefunden.")
         elif send_failed:
             await update.message.reply_text("⚠️ Download war ok, aber der Versand an Telegram ist fehlgeschlagen. Bitte nochmal versuchen.")
