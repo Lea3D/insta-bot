@@ -1,2 +1,4 @@
 python-telegram-bot==22.8
 yt-dlp==2026.8.19
+# wird vom Bump-Workflow beim ersten Lauf automatisch auf die aktuelle Version gepinnt
+gallery-dl

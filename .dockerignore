@@ -1,0 +1,7 @@
+.git
+.github
+.env
+.env.example
+cookies.txt
+README.md
+__pycache__/

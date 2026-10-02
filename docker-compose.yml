@@ -3,4 +3,14 @@ services:
     build: .
     image: ghcr.io/lea3d/insta-bot:latest
     restart: always
+    init: true
     env_file: .env
+    # Optional: Cookies für Instagram-Bildposts. Datei muss existieren und für
+    # alle lesbar sein (chmod 644), dann in .env COOKIES_FILE=/run/cookies.txt setzen.
+    # volumes:
+    #   - ./cookies.txt:/run/cookies.txt:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
